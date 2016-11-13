@@ -2,8 +2,9 @@ from translate import translate
 
 
 class MatchObject:
-    def __init__(self, rgx, groups):
+    def __init__(self, rgx, groups, named_groups):
         self.groups_tuple = groups
+        self.named_groups = named_groups
         self.re = rgx
 
         id = 0
@@ -14,12 +15,16 @@ class MatchObject:
     def group(self, *groupId):
         if len(groupId) == 0:
             return self.groups_tuple[0]
-        if len(groupId) == 1:
-            return self.groups_tuple[groupId[0]]
 
         result = []
         for id in groupId:
-            result.append(self.groups_tuple[id])
+            if type(id) is str:
+                result.append(self.groups_tuple[self.named_groups[id]])
+            else:
+                result.append(self.groups_tuple[id])
+
+        if len(result) == 1:
+            return result[0]
         return tuple(result)
 
     # TODO: argument `default` not supported
@@ -28,10 +33,11 @@ class MatchObject:
 
 
 class PyRegExp:
-    def __init__(self, jsStrPattern, jsTokens, jsFlags):
+    def __init__(self, jsStrPattern, jsTokens, jsFlags, named_groups):
         self.pattern = RegExp(jsStrPattern, jsFlags)
         self.jsTokens = jsTokens
         self.jsFlags = jsFlags
+        self.named_groups = named_groups
 
     def getFirstMatch(self, txt, start=None, end=None):
         pattern = self.pattern
@@ -65,14 +71,14 @@ class PyRegExp:
     def search(self, txt, start=None, end=None):
         match = self.getFirstMatch(txt, start, end)
         if match is not None:
-            return MatchObject(self, match)
+            return MatchObject(self, match, self.named_groups)
         return match
 
     def match(self, txt, start=None, end=None):
         match = self.getFirstMatch(txt, start, end)
         if match is None or match.index > start:
             return None
-        return MatchObject(self, match)
+        return MatchObject(self, match, self.named_groups)
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:
@@ -101,5 +107,5 @@ class PyRegExp:
 
 
 def compile(pyPattern):
-    jsStrPattern, jsTokens, jsFlags = translate(pyPattern)
-    return PyRegExp(jsStrPattern, jsTokens, jsFlags)
+    jsStrPattern, jsTokens, jsFlags, named_groups = translate(pyPattern)
+    return PyRegExp(jsStrPattern, jsTokens, jsFlags, named_groups)

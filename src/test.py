@@ -78,6 +78,7 @@ def browserTest():
     testRegExp("Single-line group",     r"(?s).*",       "ab\n\ndef",   "ab\n\ndef")
     testRegExp("Single-line group with literal dot",   r"(?s)\.",  "_._", ".")
     testRegExp("Look-ahead",            r"ab(?=c)",      "abc",         "ab")
+    testRegExp("Named group", r"(?P<name>foo)", "foo", "foo")
 
     try:
         m = compile(r"(?)")
@@ -117,6 +118,8 @@ def browserTest():
     arrayEq("group(2, 1)", m.group(2, 1), ["b", "a"])
     eq("group 0 access by brackets", m[0], "abc")
     eq("group 1 access by brackets", m[1], "a")
+    m = compile(r"(?P<name>foo)").match("foo")
+    eq("group('name')", m.group('name'), "foo")
 
     printResult()
 

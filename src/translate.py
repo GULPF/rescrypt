@@ -21,8 +21,9 @@ def translate(rgx):
     stack = []
     queue = list(rgx)
 
-    jsFlags = ''
-    pyFlags = 'iLmsux'
+    js_flags = ''
+    py_flags = 'iLmsux'
+    named_groups = {}
 
     dotsMatchAll = False
 
@@ -81,11 +82,11 @@ def translate(rgx):
             stack = stack[:-2]
 
         elif s1.name == '(?':
-            if s0.name in pyFlags:
+            if s0.name in py_flags:
                 if s0.name == 'i':
-                    jsFlags += 'i'
+                    js_flags += 'i'
                 elif s0.name == 'm':
-                    jsFlags += 'm'
+                    js_flags += 'm'
                 elif s0.name == 's':
                     # handled at end of method
                     dotsMatchAll = True
@@ -97,6 +98,20 @@ def translate(rgx):
 
             else:
                 stack[-2:] = [Token('(?' + s0.name)]
+
+        elif s1.name == '(?P':
+            if s0.name == '<':
+                stack.pop()
+            elif s0.name == '>':
+                named_groups[s1.paras[0]] = len(named_groups) + 1
+                stack = stack[:-2]
+                stack.append(Token('('))
+            elif not s1.paras:
+                s1.paras.append(s0.name)
+                stack.pop()
+            else:
+                s1.paras[0] += s0.name
+                stack.pop()
 
         elif s1.name == '(?#':
             if s0.name == ')':
@@ -116,6 +131,8 @@ def translate(rgx):
     res = ''
     idx = 0
 
+    console.log(rgx, '\t', resolvedTokens)
+
     for token in stack:
         stringed = token.resolve()
         if dotsMatchAll and stringed == '.':
@@ -124,4 +141,4 @@ def translate(rgx):
         res += stringed
         resolvedTokens.append(stringed)
         idx += 1
-    return res, resolvedTokens, jsFlags
+    return res, resolvedTokens, js_flags, named_groups
