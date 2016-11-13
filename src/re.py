@@ -2,8 +2,9 @@ from translate import translate
 
 
 class MatchObject:
-    def __init__(self, groups):
+    def __init__(self, rgx, groups):
         self.groups_tuple = groups
+        self.re = rgx
 
         id = 0
         for group in groups:
@@ -64,14 +65,14 @@ class PyRegExp:
     def search(self, txt, start=None, end=None):
         match = self.getFirstMatch(txt, start, end)
         if match is not None:
-            return MatchObject(match)
+            return MatchObject(self, match)
         return match
 
     def match(self, txt, start=None, end=None):
         match = self.getFirstMatch(txt, start, end)
         if match is None or match.index > start:
             return None
-        return MatchObject(match)
+        return MatchObject(self, match)
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:

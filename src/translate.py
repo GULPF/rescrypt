@@ -23,24 +23,15 @@ def translate(rgx):
 
     jsFlags = ''
     pyFlags = 'iLmsux'
-    pyFlagGroupStartTokens = list(['(?' + flag for flag in pyFlags])
-    escapeAble = list('.{}()\\?*+]')
 
     dotsMatchAll = False
 
     while True:
         high = len(stack) - 1
 
-        s0 = Token('')
-        s1 = Token('')
-        s2 = Token('')
-
-        if len(stack) > 0:
-            s0 = stack[high]
-        if len(stack) > 1:
-            s1 = stack[high - 1]
-        if len(stack) > 2:
-            s2 = stack[high - 2]
+        s0 = stack[high]     if len(stack) > 0 else Token('')
+        s1 = stack[high - 1] if len(stack) > 1 else Token('')
+        s2 = stack[high - 2] if len(stack) > 2 else Token('')
 
         if VERBOSE:
             for token in stack:
