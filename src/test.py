@@ -76,9 +76,10 @@ def browserTest():
     testRegExp("Escaped repeat",        r"\{,2}",        "{,2}",        "{,2}")
     testRegExp("Case-switch group",     r"(?i)aba",      "aBA",         "aBA")
     testRegExp("Single-line group",     r"(?s).*",       "ab\n\ndef",   "ab\n\ndef")
-    testRegExp("Single-line group with literal dot",   r"(?s)\.",  "_._", ".")
     testRegExp("Look-ahead",            r"ab(?=c)",      "abc",         "ab")
+    testRegExp("Single-line group with literal dot",   r"(?s)\.",  "_._", ".")
     testRegExp("Named group", r"(?P<name>foo)", "foo", "foo")
+    testRegExp("Named backreference", r"(?P<name>foo)(?P=name)", "foofoo", "foofoo")
 
     try:
         m = compile(r"(?)")

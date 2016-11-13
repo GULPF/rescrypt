@@ -26,8 +26,12 @@ def translate(rgx):
     named_groups = {}
 
     dotsMatchAll = False
+    nloop = 0
 
     while True:
+        nloop += 1
+        if nloop > 50:
+            break
         high = len(stack) - 1
 
         s0 = stack[high]     if len(stack) > 0 else Token('')
@@ -36,8 +40,8 @@ def translate(rgx):
 
         if VERBOSE:
             for token in stack:
-                print(token.resolve(), '\t', end='')
-            print()
+                console.log(token.resolve(), '\t', end='')
+            console.log('- - -')
 
         if s1.name == '\\':
             if s0.name == 'A':
@@ -100,12 +104,22 @@ def translate(rgx):
                 stack[-2:] = [Token('(?' + s0.name)]
 
         elif s1.name == '(?P':
-            if s0.name == '<':
-                stack.pop()
-            elif s0.name == '>':
+            stack[-2:] = [Token('(?P' + s0.name)]
+
+        elif s1.name == '(?P<':
+            if s0.name == '>':
                 named_groups[s1.paras[0]] = len(named_groups) + 1
-                stack = stack[:-2]
-                stack.append(Token('('))
+                stack[-2:] = [Token('(')]
+            elif not s1.paras:
+                s1.paras.append(s0.name)
+                stack.pop()
+            else:
+                s1.paras[0] += s0.name
+                stack.pop()
+
+        elif s1.name == '(?P=':
+            if s0.name == ')':
+                stack[-2:] = [Token('\\' + named_groups[s1.paras[0]])]
             elif not s1.paras:
                 s1.paras.append(s0.name)
                 stack.pop()
