@@ -10,6 +10,15 @@ Regular expression features in standard re __not__ supported in rescrypt:
 
 API's implemented:
 
-  - Top level functions: .compile()
-  - Regular expression objects: .search(), .match(), .split()
-  - Match objects: .group(), .groups() 
+  - Top level functions:
+    - .compile()
+  - Regular expression objects:
+    - .search()
+    - .match()
+    - .split()
+  - Match objects:
+    - .group()
+    - .groups()
+    - .groupdict()
+    - .start() [only without arguments]
+    - .end() [only without arguments]
