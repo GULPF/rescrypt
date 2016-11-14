@@ -3,33 +3,50 @@ from translate import translate
 
 class MatchObject:
     def __init__(self, rgx, groups, named_groups):
-        self.groups_tuple = groups
+        self.start_index = groups.index
+        self.groups_list = groups.map(lambda g: g if g is not void(0) else None)
         self.named_groups = named_groups
-        self.re = rgx
+        self.re = rgx  # part of re api
 
         id = 0
         for group in groups:
             self[id] = group
             id += 1
 
-    def group(self, *groupId):
-        if len(groupId) == 0:
-            return self.groups_tuple[0]
+    def group(self, *groupIds):
+        if len(groupIds) == 0:
+            return self.groups_list[0]
 
         result = []
-        for id in groupId:
+        for id in groupIds:
             if type(id) is str:
-                result.append(self.groups_tuple[self.named_groups[id]])
+                result.append(self.groups_list[self.named_groups[id]])
             else:
-                result.append(self.groups_tuple[id])
+                result.append(self.groups_list[id])
 
         if len(result) == 1:
             return result[0]
-        return tuple(result)
+        return result
 
-    # TODO: argument `default` not supported
     def groups(self, default=None):
-        return self.groups_tuple[1:]
+        return self.groups_list[1:].map(lambda g: g if g is not None else default)
+
+    def groupdict(self, default=None):
+        d = dict()
+        for gName, gId in self.named_groups:
+            value = self.groups_list[gId]
+            d[gName] = default if value is None else value
+        return d
+
+    def end(self, group=None):
+        if group is not None:
+            raise Error("end() with argument is not supported")
+        return self.start_index + self.groups_list[0].length
+
+    def start(self, group=None):
+        if group is not None:
+            raise Error("start() with argument is not supported")
+        return self.start_index
 
 
 class PyRegExp:
