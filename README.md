@@ -4,7 +4,7 @@ Rescrypt is a [Transcrypt](http://transcrypt.org/) implementation of the python 
 Regular expression features in standard re __not__ supported in rescrypt:
 
   - Look-behinds
-  - Conditionals (will most likely never be supported)
+  - Conditionals
   - Backreferences to groups that did not participate in the match attempt fail to match  
     Example: `(a)?\1` matches `aa` but fails to match `b`
 
