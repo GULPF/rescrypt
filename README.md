@@ -17,8 +17,4 @@ API's implemented:
     - .match()
     - .split()
   - Match objects:
-    - .group()
-    - .groups()
-    - .groupdict()
-    - .start() [only without arguments]
-    - .end() [only without arguments]
+    Everything, except the optional argument to .start(), .end() and .span()

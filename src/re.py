@@ -2,11 +2,22 @@ from translate import translate
 
 
 class MatchObject:
-    def __init__(self, rgx, groups, named_groups):
+    def __init__(self, rgx, groups, named_groups, txt, start_pos, end_pos):
         self.start_index = groups.index
         self.groups_list = groups.map(lambda g: g if g is not void(0) else None)
         self.named_groups = named_groups
-        self.re = rgx  # part of re api
+        # part of re api
+        self.pos = start_pos
+        self.endpos = end_pos
+        self.re = rgx
+        self.string = txt
+        self.lastindex = len(groups) - 1
+        self.lastgroup = None
+        for gName in Object.js_keys(self.named_groups):
+            gId = self.named_groups[gName]
+            if gId == self.lastindex:
+                self.lastgroup = gName
+                break
 
         id = 0
         for group in groups:
@@ -33,20 +44,26 @@ class MatchObject:
 
     def groupdict(self, default=None):
         d = dict()
-        for gName, gId in self.named_groups:
+        for gName in Object.js_keys(self.named_groups):
+            gId = self.named_groups[gName]
             value = self.groups_list[gId]
             d[gName] = default if value is None else value
         return d
 
     def end(self, group=None):
         if group is not None:
-            raise Error("end() with argument is not supported")
+            raise Error("match.end() with argument is not supported")
         return self.start_index + self.groups_list[0].length
 
     def start(self, group=None):
         if group is not None:
-            raise Error("start() with argument is not supported")
+            raise Error("match.start() with argument is not supported")
         return self.start_index
+
+    def span(self, group=None):
+        if group is not none:
+            raise Error("match.span() with argument is not supported")
+        return (self.start(), self.end())
 
 
 class PyRegExp:
@@ -56,13 +73,8 @@ class PyRegExp:
         self.jsFlags = jsFlags
         self.named_groups = named_groups
 
-    def getFirstMatch(self, txt, start=None, end=None):
+    def getFirstMatch(self, txt, start, end):
         pattern = self.pattern
-
-        if start is None:
-            start = 0
-        if end is None:
-            end = len(txt)
 
         if start is 0:
             match = txt.match(pattern)
@@ -86,16 +98,26 @@ class PyRegExp:
         return match
 
     def search(self, txt, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = len(txt)
+
         match = self.getFirstMatch(txt, start, end)
         if match is not None:
-            return MatchObject(self, match, self.named_groups)
+            return MatchObject(self, match, self.named_groups, txt, start, end)
         return match
 
     def match(self, txt, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = len(txt)
+
         match = self.getFirstMatch(txt, start, end)
         if match is None or match.index > start:
             return None
-        return MatchObject(self, match, self.named_groups)
+        return MatchObject(self, match, self.named_groups, txt, start, end)
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:
