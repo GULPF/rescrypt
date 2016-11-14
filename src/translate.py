@@ -1,18 +1,29 @@
 VERBOSE = False
 
 
-def is_unique_start(group_info, start):
-    for group in group_info:
-        if group['start'] == start:
-            return False
-    return True
+class Group:
+    def __init__(self, start, end, klass):
+        self.start = start
+        self.end = end
+        self.klass = klass
+
+    def __repr__(self):
+        return str((self.start, self.end, self.klass))
 
 
-def is_unique_end(group_info, end):
-    for group in group_info:
-        if 'end' in group and group['end'] == end:
-            return False
-    return True
+def generate_group_spans(tokens):
+    group_info = []
+
+    idx = 0
+    for token in tokens:
+        if token.name.startswith('('):
+            group_info.append(Group(idx, None, token.name))
+        elif token.name == ')':
+            for group in reversed(group_info):
+                if group.end is None:
+                    group.end = idx
+        idx += 1
+    return group_info
 
 
 def get_capture_group(group_info, named_groups, group_ref):
@@ -22,7 +33,7 @@ def get_capture_group(group_info, named_groups, group_ref):
         id = named_groups[group_ref]
     search = 0
     for group in group_info:
-        if group['type'] == '(':
+        if group.klass == '(':
             search += 1
             if search == id:
                 return group
@@ -31,23 +42,23 @@ def get_capture_group(group_info, named_groups, group_ref):
 # Splits conditionals into multiple regex parts.
 def split_if_else(tokens, group_info, named_groups):
     for group in group_info:
-        if group['type'] == '(?<':
+        if group.klass == '(?<':
             iff = tokens[:]
             els = tokens[:]
-            con_start = group['start']
-            con_end   = group['end']
+            con_start = group.start
+            con_end   = group.end
 
             ref = tokens[con_start + 1].name
             capture_group = get_capture_group(group_info, named_groups, ref)
-            capture_group_modifier = tokens[capture_group['end'] + 1]
+            capture_group_modifier = tokens[capture_group.end + 1]
 
             if capture_group_modifier.name in ['?', '*'] or capture_group_modifier.name.startswith('{0,'):
                 if capture_group_modifier.name == '?':
-                    iff[capture_group['end'] + 1].name = ''
+                    iff[capture_group.end + 1].name = ''
                 elif capture_group_modifier.name == '*':
-                    iff[capture_group['end'] + 1].name = '+'
+                    iff[capture_group.end + 1].name = '+'
                 elif capture_group_modifier.name.startswith('{0,'):
-                    iff[capture_group['end'] + 1].name[0:3] = '{1,'
+                    iff[capture_group.end + 1].name[0:3] = '{1,'
 
                 for idx in range(con_start, con_end):
                     if tokens[idx].name == '|':
@@ -55,7 +66,7 @@ def split_if_else(tokens, group_info, named_groups):
                         iff[idx:con_end + 2] = []
                         iff[con_start:con_start + 3] = []
                         els[con_start:idx + 1] = []
-                        els[capture_group['start']:capture_group['end'] + 1] = [Token('('), Token(')')]
+                        els[capture_group.start:capture_group.end + 1] = [Token('('), Token(')')]
                         break
 
                 tokens = iff
@@ -63,7 +74,6 @@ def split_if_else(tokens, group_info, named_groups):
                 tokens.extend(els)
 
             else:  # the easy case - 'else' is impossible
-                group_info.remove(group)
                 past_iff = False
                 for idx in range(con_start, con_end):
                     if iff[idx].name == '|':
@@ -74,6 +84,7 @@ def split_if_else(tokens, group_info, named_groups):
                 iff.pop(con_start)
                 iff.pop(con_start)
                 tokens = iff
+            break
     return tokens
 
 
@@ -95,7 +106,7 @@ class Token:
         return self.name + paras
 
 
-def shift_reduce(stack, queue, named_groups, group_info, js_flags, dots_match_all):
+def shift_reduce(stack, queue, named_groups, js_flags, dots_match_all):
     py_flags = 'iLmsux'
     done = False
     high = len(stack) - 1
@@ -124,11 +135,7 @@ def shift_reduce(stack, queue, named_groups, group_info, js_flags, dots_match_al
 
     elif s0.name == '$' and s0.pure:
         stack.pop()
-        stack.append(Token('(?='))
-        stack.append(Token('\\n'))
-        stack.append(Token('?'))
-        stack.append(Token('$'))
-        stack.append(Token(')'))
+        stack.extend([Token('(?='), Token('\\n'), Token('?'), Token('$'), Token(')')])
 
     elif s1.name == '{':
         if s0.name == ',' and len(s1.paras) == 0:
@@ -178,11 +185,6 @@ def shift_reduce(stack, queue, named_groups, group_info, js_flags, dots_match_al
             newToken = Token('(?' + s0.name)
             stack[-2:] = [newToken]
 
-            group_info.append({
-                'type': newToken.name,
-                'start': high - 1
-            })
-
     elif s1.name == '(?<':
         if s0.name == ')':
             stack[-1:] = [Token(''.join(s1.paras)), Token('>')]
@@ -220,20 +222,6 @@ def shift_reduce(stack, queue, named_groups, group_info, js_flags, dots_match_al
 
     # the shift in 'shift-reduce''
     else:
-        # opening capture group
-        if s1.name == '(' and is_unique_start(group_info, high - 1):
-            group_info.append({
-                'type': '(',
-                'start': high - 1
-            })
-
-        # closing any group
-        elif s0.name == ')' and is_unique_end(group_info, high):
-            for group in reversed(group_info):
-                if 'end' not in group:
-                    group['end'] = high
-                    break
-
         if not queue:
             done = True
         else:
@@ -249,7 +237,6 @@ def translate(rgx):
 
     js_flags = ''
     named_groups = {}
-    group_info = []
 
     dots_match_all = False
     nloop = 0
@@ -260,10 +247,11 @@ def translate(rgx):
             console.log("Failed to parse...")
             break
 
-        stack, queue, js_flags, dots_match_all, done = shift_reduce(stack, queue, named_groups, group_info, js_flags, dots_match_all)
+        stack, queue, js_flags, dots_match_all, done = shift_reduce(stack, queue, named_groups, js_flags, dots_match_all)
         if done:
             break
 
+    group_info = generate_group_spans(stack)
     stack = split_if_else(stack, group_info, named_groups)
 
     resolvedTokens = []
@@ -274,4 +262,11 @@ def translate(rgx):
             stringed = '[\s\S]'
         resolvedTokens.append(stringed)
     return ''.join(resolvedTokens), resolvedTokens, js_flags, named_groups, group_info
-    
+
+pattern = r"^(<)?(\w+@\w+(?:\.\w+)+)(?(1)>|$)"
+# pattern = r"(a)?(b)?(?(1)a|c)(?(2)b|d)"
+print(pattern)
+js_pattern, tokens, js_flags, named_groups, group_info = translate(pattern)
+print(js_pattern)
+print(' # '.join(tokens))
+print(group_info)
