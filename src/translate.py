@@ -1,6 +1,8 @@
 VERBOSE = False
 
 
+# Represents a regex group (e.g /()/, /(?:)/ /(?=), etc).
+# `start` and `end` is the index of the groups start and end token in the token list.
 class Group:
     def __init__(self, start, end, klass):
         self.start = start
@@ -11,6 +13,7 @@ class Group:
         return str((self.start, self.end, self.klass))
 
 
+# Generates a list of `Group`s from a token list.
 def generate_group_spans(tokens):
     group_info = []
 
@@ -26,6 +29,7 @@ def generate_group_spans(tokens):
     return group_info
 
 
+# Get the `Group` for a capture group with a given id or name.
 def get_capture_group(group_info, named_groups, group_ref):
     try:
         id = int(group_ref)
@@ -39,7 +43,15 @@ def get_capture_group(group_info, named_groups, group_ref):
                 return group
 
 
-# Splits conditionals into multiple regex parts.
+# Regex conditionals is implemented by splitting the regex into two parts,
+# one for the if case and one for the else case.
+# Example: if the input is (a)?(b)?(?(1)a|c)(?(2)b|d),
+# the first conditional will cause it to split into these parts:
+# `()(b)?c(?(2)b|d)` and `(a)(b)?a(?(2)b|d)`
+# The second conditional will then cause each part to split into two, creating four parts in total:
+# `()()cd`, `()(b)cb`, `(a)()ad` and `(a)(b)ab`
+# The parts are then merged into a single regex: `part1|part2|part3|part4`.
+# TODO: This causes the group indexes to be messed up. To fix it, group indexes must be modified with `% len(groups) + 1`.
 def split_if_else(tokens, named_groups):
     variants = []
     group_info = generate_group_spans(tokens)
@@ -125,6 +137,7 @@ class Token:
         return self.name + paras
 
 
+# Shift-reduce parser. Creates the next state of the stack & queue.
 def shift_reduce(stack, queue, named_groups, js_flags, dots_match_all):
     py_flags = 'iLmsux'
     done = False
@@ -250,6 +263,8 @@ def shift_reduce(stack, queue, named_groups, js_flags, dots_match_all):
     return stack, queue, js_flags, dots_match_all, done
 
 
+# Takes a re-regex and returns a js-regex.
+# TODO: Returns way to many values.
 def translate(rgx):
     stack = []
     queue = list(rgx)
