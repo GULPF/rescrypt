@@ -40,7 +40,10 @@ def get_capture_group(group_info, named_groups, group_ref):
 
 
 # Splits conditionals into multiple regex parts.
-def split_if_else(tokens, group_info, named_groups):
+def split_if_else(tokens, named_groups):
+    variants = []
+    group_info = generate_group_spans(tokens)
+
     for group in group_info:
         if group.klass == '(?<':
             iff = tokens[:]
@@ -54,24 +57,32 @@ def split_if_else(tokens, group_info, named_groups):
 
             if capture_group_modifier.name in ['?', '*'] or capture_group_modifier.name.startswith('{0,'):
                 if capture_group_modifier.name == '?':
-                    iff[capture_group.end + 1].name = ''
+                    iff[capture_group.end + 1] = None
                 elif capture_group_modifier.name == '*':
-                    iff[capture_group.end + 1].name = '+'
+                    iff[capture_group.end + 1] = Token('+')
                 elif capture_group_modifier.name.startswith('{0,'):
                     iff[capture_group.end + 1].name[0:3] = '{1,'
+                els[capture_group.end + 1] = None
 
+                has_else = False
                 for idx in range(con_start, con_end):
                     if tokens[idx].name == '|':
+                        has_else = True
                         els.pop(con_end)
-                        iff[idx:con_end + 2] = []
-                        iff[con_start:con_start + 3] = []
+                        iff[idx:con_end + 1] = []
                         els[con_start:idx + 1] = []
-                        els[capture_group.start:capture_group.end + 1] = [Token('('), Token(')')]
                         break
 
-                tokens = iff
-                tokens.append(Token('|'))
-                tokens.extend(els)
+                if not has_else:
+                    els[con_start:con_end + 1] = []
+                    iff.pop(con_end)
+
+                iff[con_start:con_start + 3] = []
+                els[capture_group.start:capture_group.end + 1] = [Token('('), Token(')')]
+                iff.remove(None)
+                els.remove(None)
+                variants.append(iff)
+                variants.append(els)
 
             else:  # the easy case - 'else' is impossible
                 past_iff = False
@@ -80,12 +91,17 @@ def split_if_else(tokens, group_info, named_groups):
                         iff = tokens[:idx]
                         iff.extend(tokens[con_end + 1:])
                         break
-                iff.pop(con_start)
-                iff.pop(con_start)
-                iff.pop(con_start)
-                tokens = iff
+                iff[con_start:con_start + 3] = []
+                variants.append(iff)
             break
-    return tokens
+
+    if not variants:
+        return [tokens]
+
+    all_variants = []
+    for variant in variants:
+        all_variants.extend(split_if_else(variant, named_groups))
+    return all_variants
 
 
 class Token:
@@ -97,6 +113,9 @@ class Token:
         self.pure = pure
         # tmp until I have thought of something better
         self.isModeGroup = False
+
+    def __repr__(self):
+        return self.name
 
     def resolve(self):
         paras = ''
@@ -251,9 +270,16 @@ def translate(rgx):
         if done:
             break
 
-    group_info = generate_group_spans(stack)
-    stack = split_if_else(stack, group_info, named_groups)
+    variants = split_if_else(stack, named_groups)
 
+    final = []
+    for i in range(0, len(variants)):
+        final.extend(variants[i])
+        if i < len(variants) - 1:
+            final.append(Token('|'))
+    stack = final
+
+    group_info = generate_group_spans(stack)
     resolvedTokens = []
 
     for token in stack:
@@ -262,11 +288,3 @@ def translate(rgx):
             stringed = '[\s\S]'
         resolvedTokens.append(stringed)
     return ''.join(resolvedTokens), resolvedTokens, js_flags, named_groups, group_info
-
-pattern = r"^(<)?(\w+@\w+(?:\.\w+)+)(?(1)>|$)"
-# pattern = r"(a)?(b)?(?(1)a|c)(?(2)b|d)"
-print(pattern)
-js_pattern, tokens, js_flags, named_groups, group_info = translate(pattern)
-print(js_pattern)
-print(' # '.join(tokens))
-print(group_info)

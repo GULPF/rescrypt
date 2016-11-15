@@ -81,6 +81,18 @@ def browserTest():
     testRegExp("Named group", r"(?P<name>foo)", "foo", "foo")
     testRegExp("Named backreference", r"(?P<name>foo)(?P=name)", "foofoo", "foofoo")
 
+    # conditionals
+    pattern = r"(a)?(b)?(?(1)a|c)(?(2)b|d)"
+    testRegExp("Conditional §1", pattern, "abab", "abab")
+    testRegExp("Conditional §2", pattern, "aad",  "aad")
+    testRegExp("Conditional §3", pattern, "bcb",  "bcb")
+    testRegExp("Conditional §4", pattern, "cd",   "cd")
+    pattern = r"(a)?(b)?(?(1)a|c)(?(2)b)"
+    testRegExp("Condtional w/o else §1", pattern, "abab", "abab")
+    testRegExp("Condtional w/o else §2", pattern, "aa", "aa")
+    testRegExp("Condtional w/o else §3", pattern, "bcb", "bcb")
+    testRegExp("Condtional w/o else §4", pattern, "c", "c")
+
     try:
         m = compile(r"(?)")
         bad.append(("(?) should fail", ""))
