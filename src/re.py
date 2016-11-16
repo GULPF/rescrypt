@@ -1,7 +1,7 @@
 from translate import translate
 
 
-class MatchObject:
+class Match:
     def __init__(self, rgx, groups, named_groups, txt, start_pos, end_pos):
         self.start_index = groups.index
         self.groups_list = groups.map(lambda g: g if g is not void(0) else None)
@@ -79,13 +79,13 @@ class PyRegExp:
         if start is 0:
             match = txt.match(pattern)
 
-        #  In python, `^` with `start` will allways fail to match _unless_ `txt[start - 1]` is `\n` and multi-line is active.
+        #  In python, `^` with `start` will always fail to match _unless_ `txt[start - 1]` is `\n` and multi-line is active.
         #  Interestingly, `$` with `end` works as expected and requires no special handling.
         elif 'm' not in self.jsFlags or txt[start - 1] != '\n':
             strRgx = ''
             for token in self.jsTokens:
                 if token == '^':
-                    # impossible group - will allways fail.
+                    # impossible group - will always fail.
                     # we can't just return None, since the '^' might be inside something like `(foo|^)`.
                     token = '[^\S\s]'
                 strRgx += token
@@ -97,27 +97,23 @@ class PyRegExp:
             return None
         return match
 
-    def search(self, txt, start=None, end=None):
-        if start is None:
-            start = 0
+    def search(self, txt, start=0, end=None):
         if end is None:
             end = len(txt)
 
         match = self.getFirstMatch(txt, start, end)
         if match is not None:
-            return MatchObject(self, match, self.named_groups, txt, start, end)
+            return Match(self, match, self.named_groups, txt, start, end)
         return match
 
-    def match(self, txt, start=None, end=None):
-        if start is None:
-            start = 0
+    def match(self, txt, start=0, end=None):
         if end is None:
             end = len(txt)
 
         match = self.getFirstMatch(txt, start, end)
         if match is None or match.index > start:
             return None
-        return MatchObject(self, match, self.named_groups, txt, start, end)
+        return Match(self, match, self.named_groups, txt, start, end)
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:
@@ -137,14 +133,50 @@ class PyRegExp:
 
         return splitted
 
-    def findall(self, txt, start=0, end=0 / 0):
-        globalPattern = RegExp(self.patter, 'g')
-        matches = txt.match(globalPattern)
-        while txt.index(matches[0]) < start:
-            matches = matches[1:]
-        # while txt.index(matches[len(matches) - 1]) + 
+    def findall(self, txt, start=0, end=None):
+        if end is None:
+            end = len(txt)
+        # modify pattern to match globally
+        globalPattern = RegExp(self.pattern, 'g')
+        # not correct? probably needs the same logic as `getFirstMatch()`, but will work for now
+        txt = txt[start:end]
+        result = []
+
+        while True:
+            match = globalPattern.exec(txt)
+            if match:
+                if (len(match) > 2):
+                    result.append(tuple(match[1:]))
+                elif (len(match) == 2):
+                    result.append(match[1])
+                else:
+                    result.append(match[0])
+            else:
+                break
+
+        return result
 
 
 def compile(pyPattern):
     jsStrPattern, jsTokens, jsFlags, named_groups = translate(pyPattern)
     return PyRegExp(jsStrPattern, jsTokens, jsFlags, named_groups)
+
+
+def search(pyPattern, txt, flags=0):
+    rgx = compile(pyPattern)
+    return rgx.search(txt)
+
+
+def match(pyPattern, txt, flags=0):
+    rgx = compile(pyPattern)
+    return rgx.match(txt)
+
+
+def split(pyPattern, txt, maxsplit, flags=0):
+    rgx = compile(pyPattern)
+    return rgx.split(pyPattern, maxsplit=None)
+
+
+def findall(pyPattern, txt, flags=0):
+    rgx = compile(pyPattern)
+    return rgx.findall(pyPattern, txt)

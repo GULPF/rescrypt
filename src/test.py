@@ -123,6 +123,13 @@ def browserTest():
     splitted = rgx.split('Words, words, words.', 1)
     arrayEq("Split with limit", splitted, ['Words', 'words, words.'])
 
+    # re.findal
+    rgx = compile(r"a(?P<name>.)(.)")
+    finds = rgx.findall("a12a34a56")
+    arrayEq("findall, multiple groups §1", finds[0], ('1', '2'))
+    arrayEq("findall, multiple groups §2", finds[1], ('3', '4'))
+    arrayEq("findall, multiple groups §3", finds[2], ('5', '6'))
+
     # match object
     m = compile(r"(\w)(\w)(\w)").match("abc")
     eq("group(0)", m.group(0), "abc")
