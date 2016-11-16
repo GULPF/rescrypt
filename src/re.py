@@ -1,64 +1,72 @@
 from translate import translate
 
+ASCII      = A = 0b100000000
+DEBUG          = 0b010000000
+VERBOSE    = X = 0b001000000
+DOTALL     = S = 0b000010000
+MULTILINE  = M = 0b000001000
+LOCALE     = L = 0b000000100
+IGNORECASE = I = 0b000000010
+# additional flags
+JAVASCRIPT     = 0b1000000000
+
 
 class Match:
     def __init__(self, rgx, groups, named_groups, txt, start_pos, end_pos):
-        self.start_index = groups.index
-        self.groups_list = groups.map(lambda g: g if g is not void(0) else None)
-        self.named_groups = named_groups
-        # part of re api
+        self._start_index = groups.index
+        self._groups_list = [g if g is not js_undefined else None for g in groups]
+        self._named_groups = named_groups
+
         self.pos = start_pos
         self.endpos = end_pos
         self.re = rgx
         self.string = txt
         self.lastindex = len(groups) - 1
         self.lastgroup = None
-        for gName in Object.js_keys(self.named_groups):
-            gId = self.named_groups[gName]
-            if gId == self.lastindex:
-                self.lastgroup = gName
+
+        for group_name, group_id in self._named_groups.items():
+            if group_id == self.lastindex:
+                self.lastgroup = group_name
                 break
 
-        id = 0
-        for group in groups:
-            self[id] = group
-            id += 1
+        for idx, group in enumerate(groups):
+            self[idx] = group
 
     def group(self, *groupIds):
         if len(groupIds) == 0:
-            return self.groups_list[0]
+            return self._groups_list[0]
 
         result = []
         for id in groupIds:
             if type(id) is str:
-                result.append(self.groups_list[self.named_groups[id]])
+                result.append(self._groups_list[self._named_groups[id]])
             else:
-                result.append(self.groups_list[id])
+                result.append(self._groups_list[id])
 
         if len(result) == 1:
             return result[0]
-        return result
+        return tuple(result)
 
     def groups(self, default=None):
-        return self.groups_list[1:].map(lambda g: g if g is not None else default)
+        return tuple([g if g is not None else default for g in self._groups_list[1:]])
 
     def groupdict(self, default=None):
         d = dict()
-        for gName in Object.js_keys(self.named_groups):
-            gId = self.named_groups[gName]
-            value = self.groups_list[gId]
+        for gName in Object.js_keys(self._named_groups):
+            gId = self._named_groups[gName]
+            value = self._groups_list[gId]
             d[gName] = default if value is None else value
         return d
 
     def end(self, group=None):
         if group is not None:
             raise Error("match.end() with argument is not supported")
-        return self.start_index + self.groups_list[0].length
+        return self._start_index + self._groups_list[0].length
 
     def start(self, group=None):
         if group is not None:
             raise Error("match.start() with argument is not supported")
-        return self.start_index
+        return self._start_index
 
     def span(self, group=None):
         if group is not none:
@@ -71,17 +79,14 @@ class PyRegExp:
         self.pattern = RegExp(jsStrPattern, jsFlags)
         self.jsTokens = jsTokens
         self.jsFlags = jsFlags
-        self.named_groups = named_groups
+        self._named_groups = named_groups
 
     def getFirstMatch(self, txt, start, end):
         pattern = self.pattern
 
-        if start is 0:
-            match = txt.match(pattern)
-
         #  In python, `^` with `start` will always fail to match _unless_ `txt[start - 1]` is `\n` and multi-line is active.
         #  Interestingly, `$` with `end` works as expected and requires no special handling.
-        elif 'm' not in self.jsFlags or txt[start - 1] != '\n':
+        if start != 0 and 'm' not in self.jsFlags or txt[start - 1] != '\n':
             strRgx = ''
             for token in self.jsTokens:
                 if token == '^':
@@ -91,11 +96,7 @@ class PyRegExp:
                 strRgx += token
             pattern = RegExp(strRgx, self.jsFlags)
 
-        match = txt[start:end].match(pattern)
-
-        if match is None:
-            return None
-        return match
+        return txt[start:end].match(pattern)
 
     def search(self, txt, start=0, end=None):
         if end is None:
@@ -103,7 +104,7 @@ class PyRegExp:
 
         match = self.getFirstMatch(txt, start, end)
         if match is not None:
-            return Match(self, match, self.named_groups, txt, start, end)
+            return Match(self, match, self._named_groups, txt, start, end)
         return match
 
     def match(self, txt, start=0, end=None):
@@ -113,7 +114,7 @@ class PyRegExp:
         match = self.getFirstMatch(txt, start, end)
         if match is None or match.index > start:
             return None
-        return Match(self, match, self.named_groups, txt, start, end)
+        return Match(self, match, self._named_groups, txt, start, end)
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:
@@ -157,9 +158,11 @@ class PyRegExp:
         return result
 
 
-def compile(pyPattern):
-    jsStrPattern, jsTokens, jsFlags, named_groups = translate(pyPattern)
-    return PyRegExp(jsStrPattern, jsTokens, jsFlags, named_groups)
+def compile(pyPattern, flags=0):
+    if not flags & JAVASCRIPT:
+        jsTokens, jsFlags, named_groups = translate(pyPattern)
+        return PyRegExp(''.join(jsTokens), jsTokens, jsFlags, named_groups)
+    return PyRegExp(pyPattern, None, '', dict())
 
 
 def search(pyPattern, txt, flags=0):

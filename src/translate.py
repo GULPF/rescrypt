@@ -145,7 +145,6 @@ def shift_reduce(stack, queue, named_groups, js_flags, dots_match_all):
 
     s0 = stack[high]     if len(stack) > 0 else Token('')
     s1 = stack[high - 1] if len(stack) > 1 else Token('')
-    s2 = stack[high - 2] if len(stack) > 2 else Token('')
 
     if VERBOSE:
         for token in stack:
@@ -202,7 +201,7 @@ def shift_reduce(stack, queue, named_groups, js_flags, dots_match_all):
             elif s0.name == 'm':
                 js_flags += 'm'
             elif s0.name == 's':
-                # handled at end of method
+                # handled at end of translation
                 dots_match_all = True
             else:
                 raise Error('Unsupported flag: ' + s0.name)
@@ -270,7 +269,7 @@ def translate(rgx):
     queue = list(rgx)
 
     js_flags = ''
-    named_groups = {}
+    named_groups = dict()
 
     dots_match_all = False
     nloop = 0
@@ -286,6 +285,7 @@ def translate(rgx):
             break
 
     variants = split_if_else(stack, named_groups)
+    n_splits = len(variants)
 
     final = []
     for i in range(0, len(variants)):
@@ -302,4 +302,4 @@ def translate(rgx):
         if dots_match_all and stringed == '.':
             stringed = '[\s\S]'
         resolvedTokens.append(stringed)
-    return ''.join(resolvedTokens), resolvedTokens, js_flags, named_groups, group_info
+    return resolvedTokens, js_flags, named_groups, group_info, n_splits
