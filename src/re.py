@@ -37,9 +37,9 @@ class Match:
         self.lastindex = len(groups) - 1
         self.lastgroup = None
 
-        for group_name, group_id in self._namedGroups.items():
-            if group_id == self.lastindex:
-                self.lastgroup = group_name
+        for groupName, groupId in self._namedGroups.items():
+            if groupId == self.lastindex:
+                self.lastgroup = groupName
                 break
 
         for idx, group in enumerate(groups):
