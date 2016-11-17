@@ -29,6 +29,17 @@ def generate_group_spans(tokens):
     return group_info
 
 
+def count_capture_groups(tokens):
+    group_info = generate_group_spans(tokens)
+    count = 0
+
+    for token in tokens:
+        if token.name == '(':
+            count += 1
+
+    return count
+
+
 # Get the `Group` for a capture group with a given id or name.
 def get_capture_group(group_info, named_groups, group_ref):
     try:
@@ -277,7 +288,7 @@ def translate(rgx):
     while True:
         nloop += 1
         if nloop > 50:
-            console.log("Failed to parse...")
+            console.log("Failed to parse...", rgx)
             break
 
         stack, queue, js_flags, dots_match_all, done = shift_reduce(stack, queue, named_groups, js_flags, dots_match_all)
@@ -302,4 +313,4 @@ def translate(rgx):
         if dots_match_all and stringed == '.':
             stringed = '[\s\S]'
         resolvedTokens.append(stringed)
-    return resolvedTokens, js_flags, named_groups, group_info, n_splits
+    return resolvedTokens, js_flags, named_groups, count_capture_groups(stack), group_info, n_splits
