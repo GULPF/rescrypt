@@ -11,18 +11,9 @@ With two exceptions, any valid re regex _should_ behave correctly. The exception
     In rescrypt, the backreference will never fail in that scenario.  
     Example: `(a)?\1` matches both `aa` and `b` in rescrypt, but only `aa` in re.
 
-## Implemented API
+## API
 
-  - Top level functions:
-    - .compile()
-    - .search()
-    - .match()
-    - .split()
-    - .findall()
-  - Regular expression objects:
-    - .search()
-    - .match()
-    - .split()
-    - .findall()
-  - Match objects:
-    Everything, except the optional argument to .start(), .end() and .span()
+Not supported:
+  - re.sub(), re.subn(), re.finditer()
+  - match.expand
+  - the optional argument for match.start(), match.end() and match.span()

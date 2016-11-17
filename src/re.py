@@ -12,16 +12,36 @@ LOCALE     = L = 0b000000100
 IGNORECASE = I = 0b000000010
 T = 0b000000001
 
+_bitFlagFormatBits = [A, X, U, S, M, L, I]
+_bitFlagFormatStr  = ['a', 'x', 'u', 's', 'm', 'L', 'i']
+# TODO: js-specific flags should also be supported,
+#       but they should be supported everywhere (e.g `compile("(?y)whatever")` should be valid).
+_jsFlags = ['i', 'g', 'm']
 
-def _extractFlags(flags):
-    passedFlags = ''
-    if flags & DOTALL:
-        passedFlags += 's'
-    if flags & MULTILINE:
-        passedFlags += 'm'
-    if flags & IGNORECASE:
-        passedFlags += 'i'
-    return passedFlags
+
+def _decodeFlags(bitFlags):
+    flags = ''
+    for x in range(0, len(_bitFlagFormatBits)):
+        if bitFlags & _bitFlagFormatBits[x]:
+            flags += _bitFlagFormatStr[x]
+    return flags
+
+
+def _encodeFlags(flags):
+    bitFlags = 0
+    for flag in flags:
+        x = _bitFlagFormatStr.indexOf(flag)
+        if (x > -1):
+            bitFlags |= _bitFlagFormatBits[x]
+    return bitFlags
+
+
+def _getJsFlags(flags):
+    jsFlags = ''
+    for flag in flags:
+        if flag in _jsFlags:
+            jsFlags += flag
+    return jsFlags
 
 
 class Match:
@@ -88,20 +108,23 @@ class Match:
 
 
 class PyRegExp:
-    def __init__(self, jsStrPattern, jsTokens, jsFlags, namedGroups, nCaptureGroups):
-        self._pattern = RegExp(jsStrPattern, jsFlags)
+    def __init__(self, pyPattern, jsTokens, flags, bitFlags, namedGroups, nCaptureGroups):
+        self._flags = flags
+        self._jsFlags = _getJsFlags(self._flags)
+        self._jsPattern = RegExp(''.join(jsTokens), self._jsFlags)
         self._jsTokens = jsTokens
-        self._jsFlags = jsFlags
 
+        self.flags = bitFlags
         self.groups = nCaptureGroups
         self.groupindex = namedGroups
+        self.pattern = pyPattern
 
     def _getFirstMatch(self, txt, start, end):
-        pattern = self._pattern
+        pattern = self._jsPattern
 
         #  In python, `^` with `start` will always fail to match _unless_ `txt[start - 1]` is `\n` and multi-line is active.
         #  Interestingly, `$` with `end` works as expected and requires no special handling.
-        if start != 0 and 'm' not in self._jsFlags or txt[start - 1] != '\n':
+        if start != 0 and 'm' not in self._flags or txt[start - 1] != '\n' and self._jsTokens:
             strRgx = ''
             for token in self._jsTokens:
                 if token == '^':
@@ -142,9 +165,9 @@ class PyRegExp:
 
     def split(self, txt, maxsplit=None):
         if maxsplit is None:
-            splitted = txt.split(self._pattern)
+            splitted = txt.split(self._jsPattern)
         else:
-            splitted = txt['split'](self._pattern, maxsplit)
+            splitted = txt['split'](self._jsPattern, maxsplit)
 
             consumed = 0
             for split in splitted:
@@ -153,7 +176,7 @@ class PyRegExp:
             # python will give ["test", "test%test"], and js ["test", "%test%test"]
             # this last bit fixes that
             last_el = txt[consumed + 1:]
-            skip = len(last_el.match(self._pattern)[0])
+            skip = len(last_el.match(self._jsPattern)[0])
             splitted.append(last_el[skip:])
 
         return splitted
@@ -162,7 +185,7 @@ class PyRegExp:
         if end is None:
             end = len(txt)
         # modify pattern to match globally
-        globalPattern = RegExp(self._pattern, 'g')
+        globalPattern = RegExp(self._jsPattern, 'g')
         # not correct? probably needs the same logic as `_getFirstMatch()`, but will work for now
         txt = txt[start:end]
         result = []
@@ -182,35 +205,36 @@ class PyRegExp:
         return result
 
 
-def compile(pyPattern, flags=0):
-    passedFlags = _extractFlags(flags)
+def compile(pyPattern, bitFlags=0):
+    passedFlags = _decodeFlags(bitFlags)
 
     if not flags & JAVASCRIPT:
-        jsTokens, jsFlags, namedGroups, nCaptureGroups = translate(pyPattern)
-        return PyRegExp(''.join(jsTokens), jsTokens, jsFlags + passedFlags, namedGroups, nCaptureGroups)
+        jsTokens, flags, namedGroups, nCaptureGroups = translate(pyPattern)
+        bitFlags |= _encodeFlags(flags)
+        return PyRegExp(pyPattern, jsTokens, flags + passedFlags, bitFlags, namedGroups, nCaptureGroups)
     return PyRegExp(pyPattern, None, '', dict())
 
 
-def search(pyPattern, txt, flags=0):
-    rgx = compile(pyPattern, flags)
+def search(pyPattern, txt, bitFlags=0):
+    rgx = compile(pyPattern, bitFlags)
     return rgx.search(txt)
 
 
-def match(pyPattern, txt, flags=0):
-    rgx = compile(pyPattern, flags)
+def match(pyPattern, txt, bitFlags=0):
+    rgx = compile(pyPattern, bitFlags)
     return rgx.match(txt)
 
 
-def split(pyPattern, txt, maxsplit, flags=0):
-    rgx = compile(pyPattern, flags)
+def split(pyPattern, txt, maxsplit, bitFlags=0):
+    rgx = compile(pyPattern, bitFlags)
     return rgx.split(txt, maxsplit=None)
 
 
-def findall(pyPattern, txt, flags=0):
-    rgx = compile(pyPattern)
+def findall(pyPattern, txt, bitFlags=0):
+    rgx = compile(pyPattern, bitFlags)
     return rgx.findall(txt)
 
 
-def fullmatch(pyPattern, txt, flags=0):
-    rgx = compile(pyPattern)
+def fullmatch(pyPattern, txt, bitFlags=0):
+    rgx = compile(pyPattern, bitFlags)
     return rgx.fullmatch(txt)

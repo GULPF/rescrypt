@@ -148,11 +148,23 @@ class Token:
         return self.name + paras
 
 
+def shift(stack, queue):
+    done = not bool(queue)
+    if not done:
+        stack.append(Token(queue[0], [], True))
+        queue = queue[1:]
+    return stack, queue, done
+
+
 # Shift-reduce parser. Creates the next state of the stack & queue.
-def shiftReduce(stack, queue, namedGroups, jsFlags, dotsMatchAll):
+def shiftReduce(stack, queue, namedGroups, flags):
     pyFlags = 'iLmsux'
     done = False
     high = len(stack) - 1
+
+    if len(stack) < 2:
+        stack, queue, done = shift(stack, queue)
+        return stack, queue, flags, done
 
     s0 = stack[high]     if len(stack) > 0 else Token('')
     s1 = stack[high - 1] if len(stack) > 1 else Token('')
@@ -208,12 +220,11 @@ def shiftReduce(stack, queue, namedGroups, jsFlags, dotsMatchAll):
     elif s1.name == '(?':
         if s0.name in pyFlags:
             if s0.name == 'i':
-                jsFlags += 'i'
+                flags += 'i'
             elif s0.name == 'm':
-                jsFlags += 'm'
+                flags += 'm'
             elif s0.name == 's':
-                # handled at end of translation
-                dotsMatchAll = True
+                flags += 's'
             else:
                 raise Error('Unsupported flag: ' + s0.name)
 
@@ -263,15 +274,10 @@ def shiftReduce(stack, queue, namedGroups, jsFlags, dotsMatchAll):
         else:
             stack = stack[:-1]
 
-    # the shift in 'shift-reduce''
     else:
-        if not queue:
-            done = True
-        else:
-            stack.append(Token(queue[0], [], True))
-            queue = queue[1:]
+        stack, queue, done = shift(stack, queue)
 
-    return stack, queue, jsFlags, dotsMatchAll, done
+    return stack, queue, flags, done
 
 
 # Takes a re-regex and returns a js-regex.
@@ -280,10 +286,9 @@ def translate(rgx):
     stack = []
     queue = list(rgx)
 
-    jsFlags = ''
+    flags = ''
     namedGroups = dict()
 
-    dotsMatchAll = False
     nloop = 0
 
     while True:
@@ -292,7 +297,7 @@ def translate(rgx):
             console.log("Failed to parse...", rgx)
             break
 
-        stack, queue, jsFlags, dotsMatchAll, done = shiftReduce(stack, queue, namedGroups, jsFlags, dotsMatchAll)
+        stack, queue, flags, done = shiftReduce(stack, queue, namedGroups, flags)
         if done:
             break
 
@@ -311,7 +316,7 @@ def translate(rgx):
 
     for token in stack:
         stringed = token.resolve()
-        if dotsMatchAll and stringed == '.':
+        if 's' in flags and stringed == '.':
             stringed = '[\s\S]'
         resolvedTokens.append(stringed)
-    return resolvedTokens, jsFlags, namedGroups, countCaptureGroups(stack), n_splits
+    return resolvedTokens, flags, namedGroups, countCaptureGroups(stack), n_splits

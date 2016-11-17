@@ -67,27 +67,33 @@ def run(autoTester):
     autoTester.check(match.lastindex)
     autoTester.check(match.groupdict()['name'])
 
-    match = re.compile(r"(\w)(\w)(\w)").match("abc")
+    rgx = re.compile(r'(\w)(\w)(\w)')
+    # autoTester.check(rgx.pattern)
+    autoTester.check(rgx.groups)
+    match = rgx.match('abc')
     autoTester.check(match.group(0))
     autoTester.check(match.group(1))
     autoTester.check(match.group(1, 2))
     autoTester.check(match.group(2, 1))
 
-    match = re.compile(r"(\d+)\.?(\d+)?").match("24")
+    match = re.compile(r'(\d+)\.?(\d+)?').match('24')
     #autoTester.check(match.groups())
     autoTester.check(match.groups(0))
     autoTester.check(match.group(2))
-    match = re.compile(r"abc").search("__abc__")
+    match = re.compile(r'abc').search('__abc__')
     autoTester.check(match.start())
     autoTester.check(match.end())
 
     # findall
-    finds = re.compile(r"a(?P<name>.)(.)").findall("a12a34a56")
+    finds = re.compile(r'a(?P<name>.)(.)').findall('a12a34a56')
     autoTester.check(finds[0])
     autoTester.check(finds[1])
     autoTester.check(finds[2])
 
-    rgx = re.compile(r"\W+")
+    rgx = re.compile(r'\W+')
     txt = 'Words, words, words.'
     autoTester.check(rgx.split(txt))
     autoTester.check(rgx.split(txt, 1))
+
+    rgx = re.compile('r(?m)(?i)', re.UNICODE | re.LOCALE)
+    autoTester.check(rgx.flags)
